@@ -8,6 +8,9 @@ const navItems = [
   { path: '/cartera', label: 'Cartera', icon: '🗂️' },
   { path: '/calendario', label: 'Calendario', icon: '📅' },
   { path: '/inventario', label: 'Inventario', icon: '📦' },
+
+  /* NUEVO */
+  { path: '/sedes', label: 'Sedes', icon: '🏢' },
 ];
 
 const s = {
@@ -108,7 +111,9 @@ export default function Layout({ children, user, onLogout }) {
   return (
     <>
       <style>{styleTag}</style>
+
       <div style={s.wrapper}>
+
         <div style={s.header}>
           <div style={s.headerLeft}>
             <div style={s.logo}>💵</div>
@@ -117,6 +122,7 @@ export default function Layout({ children, user, onLogout }) {
               <div style={s.headerSub}>Panel de Oficina</div>
             </div>
           </div>
+
           <div style={s.headerRight}>
             <div style={s.userBadge}>
               <div style={s.userDot}></div>
@@ -125,16 +131,24 @@ export default function Layout({ children, user, onLogout }) {
                 <div style={s.userEmail}>{user.email}</div>
               </div>
             </div>
-            <button style={s.logoutBtn} onClick={onLogout} title="Cerrar sesión">⬆️</button>
+
+            <button style={s.logoutBtn} onClick={onLogout} title="Cerrar sesión">
+              ⬆️
+            </button>
           </div>
+
           <div style={s.headerGlow}></div>
         </div>
 
         <div style={s.body}>
+
           <div style={s.sidebar}>
             <div style={s.sidebarLabel}>NAVEGACIÓN</div>
+
             {navItems.map(item => {
+
               const active = location.pathname === item.path;
+
               return (
                 <div
                   key={item.path}
@@ -145,9 +159,14 @@ export default function Layout({ children, user, onLogout }) {
                   {item.label}
                 </div>
               );
+
             })}
           </div>
-          <div style={s.main}>{children}</div>
+
+          <div style={s.main}>
+            {children}
+          </div>
+
         </div>
       </div>
     </>

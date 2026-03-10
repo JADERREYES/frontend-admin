@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -8,6 +9,9 @@ import Clientes from './pages/Clientes';
 import Cartera from './pages/Cartera';
 import Calendario from './pages/Calendario';
 import Inventario from './pages/Inventario';
+
+/* NUEVO */
+import Sedes from './pages/Sedes';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -35,13 +39,19 @@ function App() {
     <BrowserRouter>
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
+
           <Route path="/" element={<Navigate to="/dashboard" />} />
+
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/cobradores" element={<Cobradores />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/cartera" element={<Cartera />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/inventario" element={<Inventario />} />
+
+          {/* NUEVA RUTA */}
+          <Route path="/sedes" element={<Sedes />} />
+
         </Routes>
       </Layout>
     </BrowserRouter>

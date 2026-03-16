@@ -51,7 +51,6 @@ function App() {
           <Route path="/inventario" element={<Inventario />} />
 
           {/* ESTA ES LA NUEVA RUTA */}
-          <Route path="/sedes" element={<Sedes />} />
 
         </Routes>
       </Layout>

@@ -10,8 +10,8 @@ import Cartera from './pages/Cartera';
 import Calendario from './pages/Calendario';
 import Inventario from './pages/Inventario';
 
-/* NUEVO */
-import Sedes from './pages/Sedes';
+/* CAMBIA ESTO: */
+// import Sedes from './pages/Sedes';  ← ELIMINA ESTA LÍNEA
 
 function App() {
   const [user, setUser] = useState(null);
@@ -49,8 +49,8 @@ function App() {
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/inventario" element={<Inventario />} />
 
-          {/* NUEVA RUTA */}
-          <Route path="/sedes" element={<Sedes />} />
+          {/* ELIMINA O COMENTA ESTA RUTA */}
+          {/* <Route path="/sedes" element={<Sedes />} /> */}
 
         </Routes>
       </Layout>

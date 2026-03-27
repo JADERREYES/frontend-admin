@@ -64,9 +64,17 @@ const Dashboard = () => {
   const prestamosColumns = [
     { 
       title: 'Cliente', 
-      dataIndex: ['cliente', 'nombre'], 
-      key: 'cliente', 
-      render: (_, record) => record.cliente?.nombre || 'N/A'
+      key: 'cliente',
+      render: (_, record) => {
+        // Manejar diferentes estructuras de datos
+        if (record.cliente && typeof record.cliente === 'object') {
+          return record.cliente.nombre || 'N/A';
+        }
+        if (record.clienteId && typeof record.clienteId === 'object') {
+          return record.clienteId.nombre || 'N/A';
+        }
+        return 'N/A';
+      }
     },
     { 
       title: 'Capital', 

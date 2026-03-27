@@ -1,284 +1,304 @@
 import React, { useState, useEffect } from 'react';
-import { dashboardAPI, carteraAPI } from '../services/api';
-import DashboardCharts from "../components/DashboardCharts";
+import { Card, Row, Col, Statistic, Spin, Typography, Space, Tag, Progress, Button, Table, message, Empty, Tooltip } from 'antd';
+import { 
+  DollarOutlined, 
+  UserOutlined, 
+  TeamOutlined, 
+  FileTextOutlined,
+  RiseOutlined,
+  FallOutlined,
+  ClockCircleOutlined,
+  WalletOutlined,
+  ShopOutlined,
+  PlusOutlined,
+  EyeOutlined,
+  PercentageOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import api from '../api/api';
 
-const fmt = n => `$ ${Number(n || 0).toLocaleString('es-CO')}`;
+const { Title, Text } = Typography;
 
-export default function Dashboard() {
-  const [data, setData] = useState(null);
-  const [carteraData, setCarteraData] = useState(null);
-  const [prestamos, setPrestamos] = useState([]); // ✅ NUEVO: para la tabla
+const Dashboard = () => {
   const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Cargar datos del dashboard, cartera y préstamos en paralelo
-    Promise.all([
-      dashboardAPI.get(),
-      carteraAPI.getResumen(),
-      carteraAPI.getPrestamos() // ✅ NUEVO: obtener préstamos para la tabla
-    ])
-    .then(([dashboardRes, carteraRes, prestamosRes]) => {
-      setData(dashboardRes.data);
-      setCarteraData(carteraRes.data);
-      setPrestamos(prestamosRes.data || []);
-    })
-    .catch(error => {
-      console.error('❌ Error cargando dashboard:', error);
-    })
-    .finally(() => setLoading(false));
+    cargarDashboard();
   }, []);
 
+  const cargarDashboard = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/dashboard');
+      setDashboardData(response.data);
+    } catch (err) {
+      message.error('Error al cargar datos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
-    return <div style={{ padding: "40px", textAlign: "center" }}>Cargando dashboard...</div>;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <Spin size="large" description="Cargando datos..." />
+      </div>
+    );
   }
 
-  if (!data) return null;
+  const stats = dashboardData?.stats || {};
+  const ultimosPrestamos = dashboardData?.ultimosPrestamos || [];
+  const cobradoresRecientes = dashboardData?.cobradoresRecientes || [];
 
-  const { stats, ultimosPrestamos, cobradoresRecientes, metricasSede } = data;
-  const carteraResumen = carteraData?.resumen || {};
-  const pagosResumen = carteraData?.pagos || {};
+  const totalCartera = stats.totalCartera || 0;
+  const totalRecaudado = stats.totalRecaudado || 0;
+  const porCobrar = totalCartera - totalRecaudado;
+  const porcentajeCobro = totalCartera > 0 ? (totalRecaudado / totalCartera) * 100 : 0;
+  const interesGenerado = stats.interesGenerado || 0;
+  const eficienciaCobro = totalCartera > 0 ? (totalRecaudado / totalCartera) * 100 : 0;
+
+  const prestamosColumns = [
+    { 
+      title: 'Cliente', 
+      dataIndex: ['cliente', 'nombre'], 
+      key: 'cliente', 
+      render: (_, record) => record.cliente?.nombre || 'N/A'
+    },
+    { 
+      title: 'Capital', 
+      dataIndex: 'capital', 
+      key: 'capital', 
+      render: (val) => `$${val?.toLocaleString() || 0}` 
+    },
+    { 
+      title: 'Interés', 
+      dataIndex: 'interes', 
+      key: 'interes', 
+      render: (val) => `$${val?.toLocaleString() || 0}` 
+    },
+    { 
+      title: 'Total', 
+      dataIndex: 'total', 
+      key: 'total', 
+      render: (val) => `$${val?.toLocaleString() || 0}` 
+    },
+    { 
+      title: 'Pagado', 
+      dataIndex: 'totalPagado', 
+      key: 'totalPagado', 
+      render: (val) => `$${val?.toLocaleString() || 0}` 
+    },
+    { 
+      title: 'Estado', 
+      dataIndex: 'estado', 
+      key: 'estado',
+      render: (estado) => {
+        const estadoStr = String(estado || 'activo').toUpperCase();
+        const color = estadoStr === 'PAGADO' ? 'green' : estadoStr === 'ACTIVO' ? 'blue' : 'red';
+        return <Tag color={color}>{estadoStr}</Tag>;
+      }
+    },
+    {
+      title: 'Acciones',
+      key: 'acciones',
+      render: (_, record) => (
+        <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/prestamos/${record._id}`)} size="small">
+          Ver
+        </Button>
+      )
+    }
+  ];
 
   return (
-    <div style={{ padding: "30px" }}>
-      <h2>Dashboard</h2>
-
-      <h3>Resumen General</h3>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '20px',
-        marginBottom: '30px'
+    <div>
+      {/* Header Mejorado */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        borderRadius: 20, 
+        padding: '28px 32px', 
+        marginBottom: 28, 
+        color: 'white',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
       }}>
-        <Tarjeta 
-          titulo="Cobradores" 
-          valor={stats.cobradores} 
-          color="#0d9488" 
-          icono="👥"
-        />
-        <Tarjeta 
-          titulo="Clientes" 
-          valor={stats.clientes} 
-          color="#3b82f6" 
-          icono="👤"
-        />
-        <Tarjeta 
-          titulo="Cartera Total" 
-          valor={fmt(carteraResumen.totalAPagar || 0)} 
-          color="#8b5cf6" 
-          icono="💰"
-        />
-        <Tarjeta 
-          titulo="Recaudado Hoy" 
-          valor={fmt(pagosResumen.hoy?.total || 0)} 
-          color="#22c55e" 
-          icono="💵"
-        />
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Title level={2} style={{ color: 'white', marginBottom: 8 }}>
+              Panel de Control Global
+            </Title>
+            <Space>
+              <ClockCircleOutlined />
+              <Text style={{ color: 'rgba(255,255,255,0.8)' }}>
+                {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <div style={{ 
+              background: 'rgba(255,255,255,0.2)', 
+              borderRadius: 12, 
+              padding: '8px 16px',
+              textAlign: 'center'
+            }}>
+              <Text style={{ color: 'white', fontSize: 12 }}>Eficiencia de Cobro</Text>
+              <div style={{ fontSize: 28, fontWeight: 'bold' }}>{eficienciaCobro.toFixed(1)}%</div>
+            </div>
+          </Col>
+        </Row>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '20px',
-        marginBottom: '30px'
-      }}>
-        <div style={{
-          background: '#fff',
-          borderRadius: '12px',
-          padding: '20px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <h4>Por Cobrar</h4>
-          <p style={{ fontSize: '32px', fontWeight: '700', color: '#ef4444' }}>
-            {fmt(carteraResumen.saldoPendiente || 0)}
-          </p>
-          <p>Préstamos activos: {carteraResumen.totalPrestamos || 0}</p>
-        </div>
+      {/* Tarjetas de estadísticas mejoradas */}
+      <Row gutter={[24, 24]}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card" style={{ borderRadius: 16, borderTop: '4px solid #00d4ff' }}>
+            <Statistic
+              title={<span style={{ color: '#00d4ff' }}>Cartera Total</span>}
+              value={totalCartera}
+              precision={0}
+              prefix={<DollarOutlined />}
+              valueStyle={{ color: '#00d4ff', fontSize: 24 }}
+              suffix="COP"
+            />
+            <div style={{ marginTop: 12 }}>
+              <Progress percent={porcentajeCobro} strokeColor="#52c41a" size="small" />
+              <Text type="secondary" style={{ fontSize: 12 }}>{porcentajeCobro.toFixed(1)}% cobrado</Text>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card" style={{ borderRadius: 16, borderTop: '4px solid #52c41a' }}>
+            <Statistic
+              title={<span style={{ color: '#52c41a' }}>Total Recaudado</span>}
+              value={totalRecaudado}
+              precision={0}
+              prefix={<RiseOutlined />}
+              valueStyle={{ color: '#52c41a', fontSize: 24 }}
+              suffix="COP"
+            />
+            <Tag color="success" style={{ marginTop: 12 }}>{stats.prestamosPagados || 0} préstamos pagados</Tag>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card" style={{ borderRadius: 16, borderTop: '4px solid #ff4d4f' }}>
+            <Statistic
+              title={<span style={{ color: '#ff4d4f' }}>Por Cobrar</span>}
+              value={porCobrar}
+              precision={0}
+              prefix={<FallOutlined />}
+              valueStyle={{ color: '#ff4d4f', fontSize: 24 }}
+              suffix="COP"
+            />
+            <Text type="secondary" style={{ marginTop: 12, display: 'block' }}>
+              {stats.prestamosActivos || 0} préstamos activos
+            </Text>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card" style={{ borderRadius: 16, borderTop: '4px solid #7b2cbf' }}>
+            <Statistic
+              title={<span style={{ color: '#7b2cbf' }}>Interés Generado</span>}
+              value={interesGenerado}
+              precision={0}
+              prefix={<WalletOutlined />}
+              valueStyle={{ color: '#7b2cbf', fontSize: 24 }}
+              suffix="COP"
+            />
+            <Tag color="processing" style={{ marginTop: 12 }}>
+              ROI: {totalCartera > 0 ? ((interesGenerado / totalCartera) * 100).toFixed(2) : 0}%
+            </Tag>
+          </Card>
+        </Col>
+      </Row>
 
-        <div style={{
-          background: '#fff',
-          borderRadius: '12px',
-          padding: '20px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <h4>Recaudado del Mes</h4>
-          <p style={{ fontSize: '32px', fontWeight: '700', color: '#0d9488' }}>
-            {fmt(pagosResumen.mes?.total || 0)}
-          </p>
-          <p>Total de pagos: {pagosResumen.mes?.cantidad || 0}</p>
-        </div>
-      </div>
+      {/* Segunda fila - Métricas de negocio */}
+      <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16 }}>
+            <Statistic title="Préstamos Activos" value={stats.prestamosActivos || 0} prefix={<FileTextOutlined />} />
+            <div style={{ marginTop: 8 }}>
+              <Tag color="green">Pagados: {stats.prestamosPagados || 0}</Tag>
+              <Tag color="red">Vencidos: {stats.prestamosVencidos || 0}</Tag>
+            </div>
+            <Button type="link" style={{ marginTop: 8, padding: 0 }} onClick={() => navigate('/prestamos')}>
+              Ver todos los préstamos →
+            </Button>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16 }}>
+            <Statistic title="Total Clientes" value={stats.totalClientes || 0} prefix={<UserOutlined />} />
+            <Button type="link" style={{ marginTop: 8, padding: 0 }} onClick={() => navigate('/clientes')}>
+              Gestionar clientes →
+            </Button>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16 }}>
+            <Statistic title="Total Cobradores" value={stats.totalCobradores || 0} prefix={<TeamOutlined />} />
+            <Button type="link" style={{ marginTop: 8, padding: 0 }} onClick={() => navigate('/cobradores')}>
+              Gestionar cobradores →
+            </Button>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16 }}>
+            <Statistic title="Total Préstamos" value={stats.totalPrestamos || 0} prefix={<ShopOutlined />} />
+            <Button type="primary" icon={<PlusOutlined />} style={{ marginTop: 8 }} onClick={() => navigate('/prestamos/nuevo')} size="small">
+              Nuevo Préstamo
+            </Button>
+          </Card>
+        </Col>
+      </Row>
 
-      <hr />
-
-      {/* Sección de Dashboard por Sede */}
-      <h3>Dashboard por Sede</h3>
-      {metricasSede?.length === 0 ? (
-        <p>No hay sedes registradas</p>
-      ) : (
-        metricasSede?.map((s, i) => (
-          <div key={i} style={{
-            border: "1px solid #ddd",
-            borderRadius: '8px',
-            padding: "15px",
-            marginBottom: "10px",
-            background: '#fff'
-          }}>
-            <h4>{s.sede}</h4>
-            <p>Clientes: {s.clientes}</p>
-            <p>Préstamos activos: {s.prestamos}</p>
-            <p>Cobros hoy: {fmt(s.cobrosHoy)}</p>
-          </div>
-        ))
+      {/* Resumen de Cobradores */}
+      {cobradoresRecientes.length > 0 && (
+        <Row style={{ marginTop: 24 }}>
+          <Col span={24}>
+            <Card title="👥 Cobradores Activos" style={{ borderRadius: 16 }}>
+              <Row gutter={[16, 16]}>
+                {cobradoresRecientes.map(cobrador => (
+                  <Col key={cobrador._id} xs={24} sm={12} lg={8}>
+                    <Card size="small" style={{ background: '#f8fafc' }}>
+                      <Space>
+                        <TeamOutlined style={{ color: '#0d9488', fontSize: 20 }} />
+                        <div>
+                          <div><strong>{cobrador.nombre}</strong></div>
+                          <div style={{ fontSize: 12, color: '#64748b' }}>{cobrador.email}</div>
+                          <div style={{ fontSize: 12 }}>📞 {cobrador.telefono || 'N/A'}</div>
+                        </div>
+                      </Space>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </Card>
+          </Col>
+        </Row>
       )}
 
-      <hr />
-
-      {/* Tabla de Últimos Préstamos (mejorada) */}
-      <h3>Últimos Préstamos</h3>
-      <div style={{
-        background: '#fff',
-        borderRadius: '12px',
-        padding: '20px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        {prestamos.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
-            No hay préstamos registrados
-          </p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                <th style={thStyle}>Cliente</th>
-                <th style={thStyle}>Cobrador</th>
-                <th style={thStyle}>Capital</th>
-                <th style={thStyle}>Total</th>
-                <th style={thStyle}>Pagado</th>
-                <th style={thStyle}>Pendiente</th>
-                <th style={thStyle}>Progreso</th>
-                <th style={thStyle}>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prestamos.slice(0, 10).map(p => (
-                <tr key={p._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={tdStyle}>{p.cliente}</td>
-                  <td style={tdStyle}>{p.cobrador}</td>
-                  <td style={tdStyle}>{fmt(p.capital)}</td>
-                  <td style={tdStyle}>{fmt(p.totalAPagar)}</td>
-                  <td style={{ ...tdStyle, color: '#22c55e' }}>{fmt(p.totalPagado)}</td>
-                  <td style={{ ...tdStyle, color: '#ef4444' }}>{fmt(p.pendiente)}</td>
-                  <td style={tdStyle}>
-                    <div style={{
-                      width: '80px',
-                      height: '8px',
-                      background: '#f1f5f9',
-                      borderRadius: '4px',
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{
-                        width: `${p.progreso}%`,
-                        height: '100%',
-                        background: '#0d9488'
-                      }} />
-                    </div>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      padding: '4px 8px',
-                      background: p.estado === 'activo' ? '#d1fae5' : '#fee2e2',
-                      color: p.estado === 'activo' ? '#065f46' : '#991b1b',
-                      borderRadius: '20px',
-                      fontSize: '12px'
-                    }}>
-                      {p.estado}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <hr />
-
-      {/* Cobradores Recientes */}
-      <h3>Cobradores Recientes</h3>
-      <div style={{
-        background: '#fff',
-        borderRadius: '8px',
-        padding: '15px',
-        border: '1px solid #ddd'
-      }}>
-        {cobradoresRecientes?.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>
-            No hay cobradores registrados
-          </p>
-        ) : (
-          cobradoresRecientes?.map(c => (
-            <div key={c._id} style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '10px 0',
-              borderBottom: '1px solid #eee'
-            }}>
-              <span>{c.nombre}</span>
-              <span style={{ color: '#666' }}>{c.telefono}</span>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* DashboardCharts */}
-      <DashboardCharts data={carteraData} />
+      {/* Últimos préstamos con más información */}
+      <Row style={{ marginTop: 24 }}>
+        <Col span={24}>
+          <Card title="📋 Últimos Préstamos" style={{ borderRadius: 16 }}>
+            {ultimosPrestamos.length > 0 ? (
+              <Table 
+                columns={prestamosColumns} 
+                dataSource={ultimosPrestamos} 
+                rowKey="_id" 
+                pagination={{ pageSize: 5 }} 
+                size="middle"
+              />
+            ) : (
+              <Empty description="No hay préstamos registrados" />
+            )}
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
-}
-
-// Componente Tarjeta reutilizable
-function Tarjeta({ titulo, valor, color, icono }) {
-  return (
-    <div style={{
-      background: '#fff',
-      borderRadius: '12px',
-      padding: '20px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}>
-      <div>
-        <p style={{ color: '#666', fontSize: '14px', marginBottom: '8px' }}>{titulo}</p>
-        <p style={{ fontSize: '28px', fontWeight: '700', color }}>{valor}</p>
-      </div>
-      <div style={{
-        width: '48px',
-        height: '48px',
-        background: `${color}20`,
-        borderRadius: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '24px',
-        color
-      }}>
-        {icono}
-      </div>
-    </div>
-  );
-}
-
-const thStyle = {
-  textAlign: 'left',
-  padding: '12px 8px',
-  fontSize: '14px',
-  fontWeight: '600',
-  color: '#64748b'
 };
 
-const tdStyle = {
-  padding: '12px 8px',
-  fontSize: '14px',
-  color: '#1e293b'
-};
+export default Dashboard;

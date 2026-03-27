@@ -7,19 +7,52 @@ const { Title } = Typography;
 
 const Cartera = () => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(null);
+  const [prestamos, setPrestamos] = useState([]);
+  const [stats, setStats] = useState({
+    totalCartera: 0,
+    totalRecaudado: 0,
+    prestamosActivos: 0,
+    totalClientes: 0,
+    totalCobradores: 0
+  });
 
   useEffect(() => {
-    cargarCartera();
+    cargarDatos();
   }, []);
 
-  const cargarCartera = async () => {
+  const cargarDatos = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/cartera');
-      setData(response.data);
+      
+      // Cargar préstamos directamente
+      const prestamosRes = await api.get('/prestamos');
+      const prestamosData = prestamosRes.data || [];
+      setPrestamos(prestamosData);
+      
+      // Cargar clientes
+      const clientesRes = await api.get('/clientes');
+      const clientesData = clientesRes.data || [];
+      
+      // Cargar cobradores
+      const cobradoresRes = await api.get('/cobradores');
+      const cobradoresData = cobradoresRes.data || [];
+      
+      // Calcular estadísticas
+      const totalCartera = prestamosData.reduce((sum, p) => sum + (p.totalAPagar || p.total || 0), 0);
+      const totalRecaudado = prestamosData.reduce((sum, p) => sum + (p.totalPagado || 0), 0);
+      const prestamosActivos = prestamosData.filter(p => p.estado === 'activo').length;
+      
+      setStats({
+        totalCartera,
+        totalRecaudado,
+        prestamosActivos,
+        totalClientes: clientesData.length,
+        totalCobradores: cobradoresData.length
+      });
+      
     } catch (error) {
-      message.error('Error al cargar cartera');
+      console.error('Error cargando datos:', error);
+      message.error('Error al cargar datos de cartera');
     } finally {
       setLoading(false);
     }
@@ -28,26 +61,45 @@ const Cartera = () => {
   const columns = [
     { 
       title: 'Cliente', 
-      dataIndex: 'cliente', 
       key: 'cliente',
-      render: (cliente) => cliente?.nombre || 'N/A'
+      render: (_, record) => {
+        if (record.clienteId && typeof record.clienteId === 'object') {
+          return record.clienteId.nombre || 'N/A';
+        }
+        return 'N/A';
+      }
     },
     { 
-      title: 'Préstamo', 
-      dataIndex: 'total', 
-      key: 'total', 
-      render: v => `$${v?.toLocaleString()}` 
+      title: 'Capital', 
+      dataIndex: 'capital', 
+      key: 'capital', 
+      render: v => `$${v?.toLocaleString() || 0}` 
+    },
+    { 
+      title: 'Interés', 
+      dataIndex: 'interes', 
+      key: 'interes', 
+      render: v => `$${v?.toLocaleString() || 0}` 
+    },
+    { 
+      title: 'Total Préstamo', 
+      key: 'total',
+      render: (_, record) => `$${((record.totalAPagar || record.total) || 0).toLocaleString()}`
     },
     { 
       title: 'Pagado', 
       dataIndex: 'totalPagado', 
       key: 'totalPagado', 
-      render: v => `$${v?.toLocaleString()}` 
+      render: v => `$${v?.toLocaleString() || 0}` 
     },
     { 
       title: 'Saldo', 
-      key: 'saldo', 
-      render: (_, record) => `$${((record.total || 0) - (record.totalPagado || 0)).toLocaleString()}` 
+      key: 'saldo',
+      render: (_, record) => {
+        const total = record.totalAPagar || record.total || 0;
+        const pagado = record.totalPagado || 0;
+        return `$${(total - pagado).toLocaleString()}`;
+      }
     },
     {
       title: 'Estado',
@@ -61,10 +113,13 @@ const Cartera = () => {
     }
   ];
 
-  if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
-
-  const stats = data?.stats || {};
-  const prestamos = data?.prestamos || [];
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <Spin size="large" description="Cargando cartera..." />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -73,28 +128,34 @@ const Cartera = () => {
       <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
-            <Statistic title="Cartera Total" value={stats.totalCartera || 0} prefix={<DollarOutlined />} precision={0} />
+            <Statistic title="Cartera Total" value={stats.totalCartera} prefix={<DollarOutlined />} precision={0} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Total Recaudado" value={stats.totalRecaudado || 0} prefix={<DollarOutlined />} precision={0} />
+            <Statistic title="Total Recaudado" value={stats.totalRecaudado} prefix={<DollarOutlined />} precision={0} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Préstamos Activos" value={stats.prestamosActivos || 0} prefix={<FileTextOutlined />} />
+            <Statistic title="Préstamos Activos" value={stats.prestamosActivos} prefix={<FileTextOutlined />} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="Clientes" value={stats.totalClientes || 0} prefix={<UserOutlined />} />
+            <Statistic title="Clientes" value={stats.totalClientes} prefix={<UserOutlined />} />
           </Card>
         </Col>
       </Row>
 
       <Card title="Lista de Préstamos">
-        <Table columns={columns} dataSource={prestamos} rowKey="_id" pagination={{ pageSize: 10 }} />
+        <Table 
+          columns={columns} 
+          dataSource={prestamos} 
+          rowKey="_id" 
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: 'No hay préstamos registrados' }}
+        />
       </Card>
     </div>
   );

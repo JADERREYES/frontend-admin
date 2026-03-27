@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card, Typography, Table, Tag, Row, Col, Statistic, Spin, message } from 'antd';
 import { DollarOutlined, UserOutlined, TeamOutlined, FileTextOutlined } from '@ant-design/icons';
 import api from '../api/api';
@@ -26,19 +26,38 @@ const Cartera = () => {
   };
 
   const columns = [
-    { title: 'Cliente', dataIndex: ['cliente', 'nombre'], key: 'cliente' },
-    { title: 'Préstamo', dataIndex: 'total', key: 'total', render: v => `$${v?.toLocaleString()}` },
-    { title: 'Pagado', dataIndex: 'totalPagado', key: 'totalPagado', render: v => `$${v?.toLocaleString()}` },
-    { title: 'Saldo', key: 'saldo', render: (_, record) => `$${((record.total || 0) - (record.totalPagado || 0)).toLocaleString()}` },
     { 
-      title: 'Estado', 
-      dataIndex: 'estado', 
+      title: 'Cliente', 
+      dataIndex: 'cliente', 
+      key: 'cliente',
+      render: (cliente) => cliente?.nombre || 'N/A'
+    },
+    { 
+      title: 'Préstamo', 
+      dataIndex: 'total', 
+      key: 'total', 
+      render: v => `$${v?.toLocaleString()}` 
+    },
+    { 
+      title: 'Pagado', 
+      dataIndex: 'totalPagado', 
+      key: 'totalPagado', 
+      render: v => `$${v?.toLocaleString()}` 
+    },
+    { 
+      title: 'Saldo', 
+      key: 'saldo', 
+      render: (_, record) => `$${((record.total || 0) - (record.totalPagado || 0)).toLocaleString()}` 
+    },
+    {
+      title: 'Estado',
+      dataIndex: 'estado',
       key: 'estado',
-      render: (estado) => (
-        <Tag color={estado === 'pagado' ? 'green' : estado === 'activo' ? 'blue' : 'red'}>
-          {estado?.toUpperCase()}
-        </Tag>
-      )
+      render: (estado) => {
+        const estadoStr = String(estado || 'activo').toUpperCase();
+        const color = estadoStr === 'PAGADO' ? 'green' : estadoStr === 'ACTIVO' ? 'blue' : 'red';
+        return <Tag color={color}>{estadoStr}</Tag>;
+      }
     }
   ];
 
@@ -50,7 +69,7 @@ const Cartera = () => {
   return (
     <div>
       <Title level={2}>Cartera de Créditos</Title>
-      
+
       <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>

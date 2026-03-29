@@ -24,7 +24,7 @@ const Prestamos = () => {
 
   const columns = [
     { title: 'Cliente', key: 'cliente', render: (_, record) => record.clienteId?.nombre || 'N/A' },
-    { title: 'Capital', dataIndex: 'capital', render: v => $ },
+    { title: 'Capital', dataIndex: 'capital', render: v => `$${v?.toLocaleString() || 0}` },
     { title: 'Estado', dataIndex: 'estado', render: e => e?.toUpperCase() || 'ACTIVO' },
   ];
 

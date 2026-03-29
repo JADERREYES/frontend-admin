@@ -5,9 +5,13 @@ import { BellOutlined, WarningOutlined, DeleteOutlined, MessageOutlined, Calenda
 
 const { Text } = Typography;
 
+const SOCKET_URL =
+  process.env.REACT_APP_SOCKET_URL ||
+  process.env.REACT_APP_API_URL?.replace('/api', '') ||
+  'http://localhost:5000';
+
 const Notificaciones = () => {
   const [notificaciones, setNotificaciones] = useState([]);
-  const [socket, setSocket] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const tenantId = localStorage.getItem('tenantId');
 
@@ -18,9 +22,9 @@ const Notificaciones = () => {
     }
 
     console.log('🏢 Conectando con tenantId:', tenantId);
+    console.log('🔌 SOCKET_URL:', SOCKET_URL);
 
-    // Conectar al servidor WebSocket
-    const newSocket = io('http://localhost:5000', {
+    const newSocket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
@@ -31,13 +35,9 @@ const Notificaciones = () => {
     newSocket.on('connect', () => {
       console.log('✅ Conectado al servidor de notificaciones');
       newSocket.emit('join-tenant', tenantId);
-      console.log('📡 Unido a sala tenant:', tenantId);
     });
 
-    // Recordatorio normal
     newSocket.on('recibido-recordatorio', (data) => {
-      console.log('🔔 Recordatorio recibido:', data);
-      
       const nuevaNotificacion = {
         id: Date.now(),
         ...data,
@@ -45,28 +45,18 @@ const Notificaciones = () => {
         fecha: new Date(),
         tipo: 'normal'
       };
-      
+
       setNotificaciones(prev => [nuevaNotificacion, ...prev]);
-      
+
       message.warning({
         content: data.mensaje,
         duration: 8,
         icon: <WarningOutlined />,
         style: { marginTop: '20vh' }
       });
-      
-      if (document.hidden) {
-        document.title = '⚠️ Nuevo Recordatorio - Gota a Gota';
-        setTimeout(() => {
-          document.title = 'Panel Administrador - Gota a Gota';
-        }, 8000);
-      }
     });
 
-    // Recordatorio mensual (NUEVO)
     newSocket.on('recibido-recordatorio-mensual', (data) => {
-      console.log('📅 Recordatorio mensual recibido:', data);
-      
       const nuevaNotificacion = {
         id: Date.now(),
         ...data,
@@ -74,22 +64,15 @@ const Notificaciones = () => {
         fecha: new Date(),
         tipo: 'mensual'
       };
-      
+
       setNotificaciones(prev => [nuevaNotificacion, ...prev]);
-      
+
       message.warning({
         content: data.mensaje,
         duration: 10,
         icon: <CalendarOutlined />,
         style: { marginTop: '20vh' }
       });
-      
-      if (document.hidden) {
-        document.title = '⚠️ Recordatorio de Pago Mensual - Gota a Gota';
-        setTimeout(() => {
-          document.title = 'Panel Administrador - Gota a Gota';
-        }, 10000);
-      }
     });
 
     newSocket.on('disconnect', () => {
@@ -100,20 +83,14 @@ const Notificaciones = () => {
       console.error('❌ Error de conexión WebSocket:', error);
     });
 
-    setSocket(newSocket);
-
     return () => {
-      if (newSocket) {
-        newSocket.disconnect();
-      }
+      newSocket.disconnect();
     };
   }, [tenantId]);
 
   const marcarComoLeida = (id) => {
     setNotificaciones(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, leida: true } : notif
-      )
+      prev.map(notif => notif.id === id ? { ...notif, leida: true } : notif)
     );
   };
 
@@ -128,9 +105,7 @@ const Notificaciones = () => {
   };
 
   const marcarTodasLeidas = () => {
-    setNotificaciones(prev =>
-      prev.map(notif => ({ ...notif, leida: true }))
-    );
+    setNotificaciones(prev => prev.map(notif => ({ ...notif, leida: true })));
     message.success('Todas las notificaciones marcadas como leídas');
   };
 
@@ -143,12 +118,12 @@ const Notificaciones = () => {
     const diffMin = Math.floor(diffMs / 60000);
     const diffHoras = Math.floor(diffMs / 3600000);
     const diffDias = Math.floor(diffMs / 86400000);
-    
+
     if (diffMin < 1) return 'Ahora mismo';
     if (diffMin < 60) return `Hace ${diffMin} min`;
     if (diffHoras < 24) return `Hace ${diffHoras} horas`;
     if (diffDias < 7) return `Hace ${diffDias} días`;
-    
+
     return date.toLocaleDateString('es-CO', {
       day: '2-digit',
       month: '2-digit',
@@ -166,7 +141,7 @@ const Notificaciones = () => {
             type="text"
             icon={<BellOutlined style={{ fontSize: 20, color: '#00aa66' }} />}
             onClick={() => setModalVisible(true)}
-            style={{ 
+            style={{
               padding: '8px',
               height: 'auto',
               background: notificacionesNoLeidas > 0 ? 'rgba(255,77,79,0.1)' : 'transparent'
@@ -188,12 +163,8 @@ const Notificaciones = () => {
             <Space>
               {notificaciones.length > 0 && (
                 <>
-                  <Button size="small" onClick={marcarTodasLeidas}>
-                    Marcar todas leídas
-                  </Button>
-                  <Button size="small" danger onClick={eliminarTodas}>
-                    Eliminar todas
-                  </Button>
+                  <Button size="small" onClick={marcarTodasLeidas}>Marcar todas leídas</Button>
+                  <Button size="small" danger onClick={eliminarTodas}>Eliminar todas</Button>
                 </>
               )}
             </Space>
@@ -212,9 +183,7 @@ const Notificaciones = () => {
         {notificaciones.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <BellOutlined style={{ fontSize: 64, color: '#ccc' }} />
-            <p style={{ marginTop: 16, color: '#999', fontSize: 16 }}>
-              No hay notificaciones
-            </p>
+            <p style={{ marginTop: 16, color: '#999', fontSize: 16 }}>No hay notificaciones</p>
             <Text type="secondary" style={{ fontSize: 12 }}>
               Cuando recibas recordatorios de pago aparecerán aquí
             </Text>
@@ -238,49 +207,43 @@ const Notificaciones = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <Space align="start">
-                    <Avatar 
-                      size="small" 
-                      icon={notif.tipo === 'mensual' ? <CalendarOutlined /> : <MessageOutlined />} 
-                      style={{ 
+                    <Avatar
+                      size="small"
+                      icon={notif.tipo === 'mensual' ? <CalendarOutlined /> : <MessageOutlined />}
+                      style={{
                         backgroundColor: notif.tipo === 'mensual' ? '#faad14' : '#ff4d4f',
                         marginTop: 2
-                      }} 
+                      }}
                     />
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <Text strong style={{ color: '#ff4d4f' }}>
-                          {notif.empresa}
-                        </Text>
-                        <Tag color={notif.tipo === 'mensual' ? 'orange' : 'red'} size="small">
+                        <Text strong style={{ color: '#ff4d4f' }}>{notif.empresa}</Text>
+                        <Tag color={notif.tipo === 'mensual' ? 'orange' : 'red'}>
                           {notif.tipo === 'mensual' ? 'MENSUAL' : 'RECORDATORIO'}
                         </Tag>
                         {notif.diasAtraso && (
-                          <Tag color="red" size="small">
-                            {notif.diasAtraso} días atraso
-                          </Tag>
+                          <Tag color="red">{notif.diasAtraso} días atraso</Tag>
                         )}
                       </div>
-                      
+
                       <div style={{ marginBottom: 8 }}>
                         <Text style={{ fontSize: 14 }}>{notif.mensaje}</Text>
                       </div>
-                      
+
                       <div style={{ fontSize: 11, color: '#999', display: 'flex', gap: 16 }}>
                         {notif.fechaVencimiento && <span>📅 Vence: {notif.fechaVencimiento}</span>}
                         {notif.monto && <span>💰 Monto: ${notif.monto?.toLocaleString()}</span>}
                       </div>
-                      
+
                       <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
                         {formatFecha(notif.fecha)}
                       </div>
                     </div>
                   </Space>
-                  
-                  {!notif.leida && (
-                    <Badge status="processing" color="red" />
-                  )}
+
+                  {!notif.leida && <Badge status="processing" color="red" />}
                 </div>
-                
+
                 <div style={{ position: 'absolute', bottom: 8, right: 12 }}>
                   <Button
                     type="link"

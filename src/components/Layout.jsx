@@ -4,7 +4,6 @@ import {
   UserOutlined, 
   LogoutOutlined, 
   DashboardOutlined, 
-  DollarOutlined, 
   TeamOutlined, 
   FileTextOutlined, 
   SettingOutlined,
@@ -51,16 +50,14 @@ const AdminLayout = ({ children, user, onLogout }) => {
     navigate('/login');
   };
 
+  // Menú sin Préstamos, Pagos y Reportes
   const menuItems = [
     { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
-    { key: 'prestamos', icon: <DollarOutlined />, label: 'Préstamos' },
     { key: 'clientes', icon: <TeamOutlined />, label: 'Clientes' },
     { key: 'cobradores', icon: <UserOutlined />, label: 'Cobradores' },
     { key: 'cartera', icon: <WalletOutlined />, label: 'Cartera' },
     { key: 'calendario', icon: <CalendarOutlined />, label: 'Calendario' },
     { key: 'inventario', icon: <BoxPlotOutlined />, label: 'Inventario' },
-    { key: 'pagos', icon: <FileTextOutlined />, label: 'Pagos' },
-    { key: 'reportes', icon: <FileTextOutlined />, label: 'Reportes' },
     { key: 'configuracion', icon: <SettingOutlined />, label: 'Configuración' },
   ];
 
@@ -118,7 +115,7 @@ const AdminLayout = ({ children, user, onLogout }) => {
         {!collapsed && userTenantId && (
           <div style={{
             position: 'absolute',
-            bottom: 60, // Ajustado para que no choque con el botón de colapsar
+            bottom: 60,
             left: 10,
             right: 10,
             padding: '8px',

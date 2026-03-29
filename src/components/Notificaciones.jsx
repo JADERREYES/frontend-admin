@@ -1,25 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Modal, List, Badge, Button, message, Typography, Space, Tag, Avatar, Tooltip } from 'antd';
-import { BellOutlined, WarningOutlined, DeleteOutlined, MessageOutlined, CalendarOutlined } from '@ant-design/icons';
+import {
+  Modal,
+  List,
+  Badge,
+  Button,
+  message,
+  Typography,
+  Space,
+  Tag,
+  Avatar,
+  Tooltip
+} from 'antd';
+import {
+  BellOutlined,
+  WarningOutlined,
+  DeleteOutlined,
+  MessageOutlined,
+  CalendarOutlined
+} from '@ant-design/icons';
 
 const { Text } = Typography;
 
+const API_URL =
+  process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 const SOCKET_URL =
   process.env.REACT_APP_SOCKET_URL ||
-  process.env.REACT_APP_API_URL?.replace('/api', '') ||
+  API_URL.replace('/api', '') ||
   'http://localhost:5000';
 
 const Notificaciones = () => {
   const [notificaciones, setNotificaciones] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const tenantId = localStorage.getItem('tenantId');
+  const token = localStorage.getItem('admin_token');
 
   useEffect(() => {
     if (!tenantId) {
       console.log('⚠️ No hay tenantId, esperando login...');
       return;
     }
+
+    cargarNotificaciones();
 
     console.log('🏢 Conectando con tenantId:', tenantId);
     console.log('🔌 SOCKET_URL:', SOCKET_URL);
@@ -37,16 +60,21 @@ const Notificaciones = () => {
       newSocket.emit('join-tenant', tenantId);
     });
 
+    newSocket.on('joined', (data) => {
+      console.log('✅ Confirmación joined:', data);
+    });
+
     newSocket.on('recibido-recordatorio', (data) => {
       const nuevaNotificacion = {
-        id: Date.now(),
+        id: data._id || Date.now(),
+        _id: data._id,
         ...data,
         leida: false,
         fecha: new Date(),
         tipo: 'normal'
       };
 
-      setNotificaciones(prev => [nuevaNotificacion, ...prev]);
+      setNotificaciones((prev) => [nuevaNotificacion, ...prev]);
 
       message.warning({
         content: data.mensaje,
@@ -58,14 +86,15 @@ const Notificaciones = () => {
 
     newSocket.on('recibido-recordatorio-mensual', (data) => {
       const nuevaNotificacion = {
-        id: Date.now(),
+        id: data._id || Date.now(),
+        _id: data._id,
         ...data,
         leida: false,
         fecha: new Date(),
         tipo: 'mensual'
       };
 
-      setNotificaciones(prev => [nuevaNotificacion, ...prev]);
+      setNotificaciones((prev) => [nuevaNotificacion, ...prev]);
 
       message.warning({
         content: data.mensaje,
@@ -88,28 +117,97 @@ const Notificaciones = () => {
     };
   }, [tenantId]);
 
-  const marcarComoLeida = (id) => {
-    setNotificaciones(prev =>
-      prev.map(notif => notif.id === id ? { ...notif, leida: true } : notif)
+  const cargarNotificaciones = async () => {
+    try {
+      const response = await fetch(`${API_URL}/pagos/mis-notificaciones`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudieron cargar las notificaciones');
+      }
+
+      const adaptadas = data.map((n) => ({
+        id: n._id,
+        _id: n._id,
+        empresa: n.empresa,
+        mensaje: n.mensaje,
+        fechaVencimiento: n.fechaVencimiento,
+        diasAtraso: n.diasAtraso,
+        monto: n.monto,
+        fecha: n.fechaEnvio || n.createdAt,
+        tipo: n.tipo,
+        leida: n.leida
+      }));
+
+      setNotificaciones(adaptadas);
+    } catch (error) {
+      console.error('❌ Error cargando notificaciones:', error);
+    }
+  };
+
+  const marcarComoLeida = async (id) => {
+    setNotificaciones((prev) =>
+      prev.map((notif) =>
+        notif.id === id ? { ...notif, leida: true } : notif
+      )
     );
+
+    try {
+      await fetch(`${API_URL}/pagos/mis-notificaciones/${id}/leida`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error marcando como leída:', error);
+    }
   };
 
   const eliminarNotificacion = (id) => {
-    setNotificaciones(prev => prev.filter(notif => notif.id !== id));
-    message.success('Notificación eliminada');
+    setNotificaciones((prev) => prev.filter((notif) => notif.id !== id));
+    message.success('Notificación eliminada localmente');
   };
 
   const eliminarTodas = () => {
     setNotificaciones([]);
-    message.success('Todas las notificaciones eliminadas');
+    message.success('Todas las notificaciones eliminadas localmente');
   };
 
-  const marcarTodasLeidas = () => {
-    setNotificaciones(prev => prev.map(notif => ({ ...notif, leida: true })));
+  const marcarTodasLeidas = async () => {
+    const idsNoLeidas = notificaciones.filter((n) => !n.leida).map((n) => n.id);
+
+    setNotificaciones((prev) =>
+      prev.map((notif) => ({ ...notif, leida: true }))
+    );
+
+    try {
+      await Promise.all(
+        idsNoLeidas.map((id) =>
+          fetch(`${API_URL}/pagos/mis-notificaciones/${id}/leida`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          })
+        )
+      );
+    } catch (error) {
+      console.error('❌ Error marcando todas como leídas:', error);
+    }
+
     message.success('Todas las notificaciones marcadas como leídas');
   };
 
-  const notificacionesNoLeidas = notificaciones.filter(n => !n.leida).length;
+  const notificacionesNoLeidas = notificaciones.filter((n) => !n.leida).length;
 
   const formatFecha = (fecha) => {
     const date = new Date(fecha);
@@ -135,8 +233,18 @@ const Notificaciones = () => {
 
   return (
     <>
-      <Tooltip title={notificacionesNoLeidas > 0 ? `${notificacionesNoLeidas} notificaciones no leídas` : 'Notificaciones'}>
-        <Badge count={notificacionesNoLeidas} offset={[-5, 5]} style={{ backgroundColor: '#ff4d4f' }}>
+      <Tooltip
+        title={
+          notificacionesNoLeidas > 0
+            ? `${notificacionesNoLeidas} notificaciones no leídas`
+            : 'Notificaciones'
+        }
+      >
+        <Badge
+          count={notificacionesNoLeidas}
+          offset={[-5, 5]}
+          style={{ backgroundColor: '#ff4d4f' }}
+        >
           <Button
             type="text"
             icon={<BellOutlined style={{ fontSize: 20, color: '#00aa66' }} />}
@@ -144,7 +252,10 @@ const Notificaciones = () => {
             style={{
               padding: '8px',
               height: 'auto',
-              background: notificacionesNoLeidas > 0 ? 'rgba(255,77,79,0.1)' : 'transparent'
+              background:
+                notificacionesNoLeidas > 0
+                  ? 'rgba(255,77,79,0.1)'
+                  : 'transparent'
             }}
           />
         </Badge>
@@ -163,8 +274,12 @@ const Notificaciones = () => {
             <Space>
               {notificaciones.length > 0 && (
                 <>
-                  <Button size="small" onClick={marcarTodasLeidas}>Marcar todas leídas</Button>
-                  <Button size="small" danger onClick={eliminarTodas}>Eliminar todas</Button>
+                  <Button size="small" onClick={marcarTodasLeidas}>
+                    Marcar todas leídas
+                  </Button>
+                  <Button size="small" danger onClick={eliminarTodas}>
+                    Limpiar vista
+                  </Button>
                 </>
               )}
             </Space>
@@ -183,7 +298,9 @@ const Notificaciones = () => {
         {notificaciones.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <BellOutlined style={{ fontSize: 64, color: '#ccc' }} />
-            <p style={{ marginTop: 16, color: '#999', fontSize: 16 }}>No hay notificaciones</p>
+            <p style={{ marginTop: 16, color: '#999', fontSize: 16 }}>
+              No hay notificaciones
+            </p>
             <Text type="secondary" style={{ fontSize: 12 }}>
               Cuando recibas recordatorios de pago aparecerán aquí
             </Text>
@@ -221,9 +338,9 @@ const Notificaciones = () => {
                         <Tag color={notif.tipo === 'mensual' ? 'orange' : 'red'}>
                           {notif.tipo === 'mensual' ? 'MENSUAL' : 'RECORDATORIO'}
                         </Tag>
-                        {notif.diasAtraso && (
+                        {notif.diasAtraso ? (
                           <Tag color="red">{notif.diasAtraso} días atraso</Tag>
-                        )}
+                        ) : null}
                       </div>
 
                       <div style={{ marginBottom: 8 }}>
@@ -232,7 +349,9 @@ const Notificaciones = () => {
 
                       <div style={{ fontSize: 11, color: '#999', display: 'flex', gap: 16 }}>
                         {notif.fechaVencimiento && <span>📅 Vence: {notif.fechaVencimiento}</span>}
-                        {notif.monto && <span>💰 Monto: ${notif.monto?.toLocaleString()}</span>}
+                        {typeof notif.monto !== 'undefined' && (
+                          <span>💰 Monto: ${Number(notif.monto || 0).toLocaleString()}</span>
+                        )}
                       </div>
 
                       <div style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>

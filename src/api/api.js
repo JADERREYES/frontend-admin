@@ -13,18 +13,13 @@ const api = axios.create({
   }
 });
 
-// Interceptor para inyectar Token y TenantID
+// Interceptor para inyectar token. El tenant real lo deriva el backend desde el JWT.
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('admin_token');
-    const tenantId = localStorage.getItem('tenantId');
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    if (tenantId) {
-      config.headers['x-tenant-id'] = tenantId;
     }
 
     console.log(`🚀 Petición: ${config.method?.toUpperCase()} ${config.url}`);
@@ -145,4 +140,11 @@ export const calendarioAPI = {
 };
 
 // Exportación por defecto para usar api.get directamente
+// ===== SERVICIOS DE OFICINA =====
+export const oficinaAPI = {
+  getEstadoMensualidad: () => api.get('/oficina/mensualidad/estado'),
+  getNotificaciones: () => api.get('/oficina/notificaciones'),
+  marcarNotificacionLeida: (id) => api.patch(`/oficina/notificaciones/${id}/leida`)
+};
+
 export default api;

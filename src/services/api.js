@@ -13,5 +13,6 @@ export {
   reportesAPI,
   sedesAPI,
   calendarioAPI,
+  oficinaAPI,
   default
 } from '../api/api';

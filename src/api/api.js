@@ -63,7 +63,8 @@ export const cobradoresAPI = {
   getById: (id) => api.get(`/cobradores/${id}`),
   create: (data) => api.post('/cobradores', data),
   update: (id, data) => api.put(`/cobradores/${id}`, data),
-  delete: (id) => api.delete(`/cobradores/${id}`)
+  delete: (id) => api.delete(`/cobradores/${id}`),
+  generarPinTelegram: (id) => api.post(`/telegram/vinculacion/cobradores/${id}/generar-codigo`)
 };
 
 // ===== SERVICIOS DE CLIENTES =====

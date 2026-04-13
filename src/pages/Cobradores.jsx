@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Modal, Form, Input, message, Popconfirm, Card, Typography, Tag } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
-import api from '../api/api';
+import { Table, Button, Space, Modal, Form, Input, message, Popconfirm, Card, Typography, Tag, Alert, Descriptions } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, CopyOutlined } from '@ant-design/icons';
+import api, { cobradoresAPI } from '../api/api';
 
-const { Title } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const Cobradores = () => {
   const [cobradores, setCobradores] = useState([]);
@@ -11,6 +11,7 @@ const Cobradores = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCobrador, setEditingCobrador] = useState(null);
   const [searchText, setSearchText] = useState('');
+  const [telegramPin, setTelegramPin] = useState(null);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -36,8 +37,14 @@ const Cobradores = () => {
         await api.put(`/cobradores/${editingCobrador._id}`, values);
         message.success('Cobrador actualizado');
       } else {
-        await api.post('/cobradores', values);
+        const response = await api.post('/cobradores', values);
         message.success('Cobrador creado');
+        if (response.data?.telegramVinculacion) {
+          setTelegramPin({
+            cobrador: response.data,
+            ...response.data.telegramVinculacion
+          });
+        }
       }
       setModalVisible(false);
       form.resetFields();
@@ -64,6 +71,28 @@ const Cobradores = () => {
     cargarCobradores();
   };
 
+  const generarPinTelegram = async (record) => {
+    try {
+      setLoading(true);
+      const response = await cobradoresAPI.generarPinTelegram(record._id);
+      setTelegramPin({
+        cobrador: record,
+        ...response.data
+      });
+      message.success('PIN Telegram generado correctamente');
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Error al generar PIN Telegram');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copiarPinTelegram = () => {
+    if (!telegramPin?.codigo) return;
+    navigator.clipboard.writeText(telegramPin.codigo);
+    message.success('PIN copiado al portapapeles');
+  };
+
   const columns = [
     { title: 'Nombre', dataIndex: 'nombre', key: 'nombre' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
@@ -77,12 +106,25 @@ const Cobradores = () => {
       render: (activo) => <Tag color={activo ? 'green' : 'red'}>{activo ? 'ACTIVO' : 'INACTIVO'}</Tag>
     },
     {
+      title: 'Telegram',
+      key: 'telegram',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Tag color={record.telegramActivo ? 'green' : 'default'}>
+            {record.telegramActivo ? 'VINCULADO' : 'NO VINCULADO'}
+          </Tag>
+          {record.telegramUsername && <Text type="secondary">@{record.telegramUsername}</Text>}
+        </Space>
+      )
+    },
+    {
       title: 'Acciones',
       key: 'acciones',
       render: (_, record) => (
         <Space>
           <Button icon={<EyeOutlined />} size="small">Ver</Button>
           <Button icon={<EditOutlined />} size="small" onClick={() => { setEditingCobrador(record); form.setFieldsValue(record); setModalVisible(true); }}>Editar</Button>
+          <Button icon={<CopyOutlined />} size="small" onClick={() => generarPinTelegram(record)}>Generar PIN Telegram</Button>
           <Popconfirm title="¿Eliminar?" onConfirm={() => handleEliminar(record._id)}>
             <Button danger icon={<DeleteOutlined />} size="small">Eliminar</Button>
           </Popconfirm>
@@ -124,6 +166,39 @@ const Cobradores = () => {
           <Form.Item name="password" label="Contraseña" rules={[{ required: !editingCobrador }]}><Input.Password /></Form.Item>
           <Form.Item><Button type="primary" htmlType="submit" loading={loading}>Guardar</Button></Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="PIN Telegram generado"
+        open={Boolean(telegramPin)}
+        onCancel={() => setTelegramPin(null)}
+        footer={[
+          <Button key="copy" icon={<CopyOutlined />} onClick={copiarPinTelegram}>Copiar PIN</Button>,
+          <Button key="close" type="primary" onClick={() => setTelegramPin(null)}>Entendido</Button>
+        ]}
+      >
+        {telegramPin && (
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Alert
+              type="info"
+              showIcon
+              message="Entrega este PIN al cobrador"
+              description="El cobrador debe abrir Telegram y escribir /vincular CODIGO. Si habia un PIN activo anterior, el backend lo vencio y dejo vigente este nuevo PIN."
+            />
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="Cobrador">{telegramPin.cobrador?.nombre || telegramPin.cobradorId}</Descriptions.Item>
+              <Descriptions.Item label="Email">{telegramPin.cobrador?.email || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Tenant">{telegramPin.tenantId}</Descriptions.Item>
+              <Descriptions.Item label="PIN">
+                <Paragraph copyable style={{ marginBottom: 0 }}>
+                  <Text code>{telegramPin.codigo}</Text>
+                </Paragraph>
+              </Descriptions.Item>
+              <Descriptions.Item label="Vence">{new Date(telegramPin.expiraEn).toLocaleString()}</Descriptions.Item>
+              <Descriptions.Item label="Comando Telegram"><Text code>{`/vincular ${telegramPin.codigo}`}</Text></Descriptions.Item>
+            </Descriptions>
+          </Space>
+        )}
       </Modal>
     </div>
   );
